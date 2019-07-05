@@ -607,4 +607,103 @@ namespace mococrw {
             throw MoCOCrWException(e.what());
         }
     }
+
+    /* ###########
+     * #  EDDSA  #
+     * ###########
+     */
+
+    /*
+     * Common base class for all PIMPL classes of the EDDSA contexts
+     *
+     * Implements the check if the given key is an ED448 or an ED25519 key in the constructor.
+     */
+    template <class Key>
+    class EDDSAImpl {
+    public:
+        EDDSAImpl(const Key& key) : key(key) {
+            // Not really nice but necessary since we can't get rid of the generic keypair
+            if (key.getType() != AsymmetricKey::KeyTypes::ECC_ED) { //////////////++/++/#+/+-#/+-/#+////////////////////////////////////////// TOOOOOOOOOOODOOOOOOOOOO
+                throw mococrw::MoCOCrWException("Expected ED448 or ED25529 Key for EDDSA signatures");
+            }
+        }
+
+        Key key;
+    };
+
+    /*
+     * PIMPL-Class for EDDSASignaturePrivateKeyCtx
+     */
+    class EDDSASignaturePrivateKeyCtx::Impl : public EDDSAImpl<AsymmetricPrivateKey> {
+        using EDDSAImpl<AsymmetricPrivateKey>::EDDSAImpl;
+    };
+
+    EDDSASignaturePrivateKeyCtx::EDDSASignaturePrivateKeyCtx(const AsymmetricPrivateKey &key)
+        : _impl(std::make_unique<EDDSASignaturePrivateKeyCtx::Impl>(key)) {}
+
+    EDDSASignaturePrivateKeyCtx::~EDDSASignaturePrivateKeyCtx() = default;
+
+    EDDSASignaturePrivateKeyCtx::EDDSASignaturePrivateKeyCtx(const EDDSASignaturePrivateKeyCtx &other)
+        : _impl(std::make_unique<EDDSASignaturePrivateKeyCtx::Impl>(*(other._impl))) {}
+
+    EDDSASignaturePrivateKeyCtx& EDDSASignaturePrivateKeyCtx::operator=(const EDDSASignaturePrivateKeyCtx &other) {
+        _impl = std::make_unique<EDDSASignaturePrivateKeyCtx::Impl>(*(other._impl));
+        return *this;
+    }
+
+    std::vector<uint8_t> EDDSASignaturePrivateKeyCtx::signMessage(const std::vector<uint8_t> &message) {
+        std::vector<uint8_t> signature;
+        try {
+            auto mctx = _EVP_MD_CTX_create();
+            _EVP_DigestSignInit(mctx.get(), DigestTypes::NONE, const_cast<EVP_PKEY*>(_impl->key.internal()));
+
+            // This determines the buffer length
+            size_t siglen = 0;
+            _EVP_DigestSign(mctx.get(), nullptr, &siglen, message.data(), message.size());
+
+            signature.resize(siglen);
+            _EVP_DigestSign(mctx.get(), signature.data(), &siglen, message.data(), message.size());
+        }
+        catch (const OpenSSLException &e) {
+            throw MoCOCrWException(e.what());
+        }
+
+        return signature;
+    }
+
+    /*
+     * PIMPL-Class for EDDSASignaturePublicKeyCtx
+     */
+    class EDDSASignaturePublicKeyCtx::Impl : public EDDSAImpl<AsymmetricPublicKey> {
+        using EDDSAImpl<AsymmetricPublicKey>::EDDSAImpl;
+    };
+
+    EDDSASignaturePublicKeyCtx::EDDSASignaturePublicKeyCtx(const AsymmetricPublicKey &key)
+        : _impl(std::make_unique<EDDSASignaturePublicKeyCtx::Impl>(key)) {}
+
+    EDDSASignaturePublicKeyCtx::EDDSASignaturePublicKeyCtx(const X509Certificate &cert)
+        : EDDSASignaturePublicKeyCtx(cert.getPublicKey()) {}
+
+    EDDSASignaturePublicKeyCtx::~EDDSASignaturePublicKeyCtx() = default;
+
+    EDDSASignaturePublicKeyCtx::EDDSASignaturePublicKeyCtx(const EDDSASignaturePublicKeyCtx &other)
+        :_impl(std::make_unique<EDDSASignaturePublicKeyCtx::Impl>(*(other._impl))) {}
+
+    EDDSASignaturePublicKeyCtx& EDDSASignaturePublicKeyCtx::operator=(const EDDSASignaturePublicKeyCtx &other) {
+        _impl = std::make_unique<EDDSASignaturePublicKeyCtx::Impl>(*(other._impl));
+        return *this;
+    }
+
+    void EDDSASignaturePublicKeyCtx::verifyMessage(const std::vector<uint8_t> &signature,
+                                                   const std::vector<uint8_t> &message) {
+        try {
+            auto mctx = _EVP_MD_CTX_create();
+            _EVP_DigestVerifyInit(mctx.get(), openssl::DigestTypes::NONE, _impl->key.internal());
+            _EVP_DigestVerify(mctx.get(), signature.data(), signature.size(), message.data(), message.size());
+        }
+        catch (const OpenSSLException &e) {
+            throw MoCOCrWException(e.what());
+        }
+    }
+
 }

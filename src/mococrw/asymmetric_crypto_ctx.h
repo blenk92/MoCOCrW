@@ -541,4 +541,119 @@ private:
     std::unique_ptr<Impl> _impl;
 };
 
+/**
+ * @brief EDDSASignaturePrivateKeyCtx
+ *
+ * This class supports signing message using EDDSA (PureEDDSA according to RFC8032).
+ */
+class EDDSASignaturePrivateKeyCtx {
+public:
+
+    /**
+     * @brief Constructor
+     * @param key The private key to be used
+     * @throw MoCOCrWException If key is not an ED448 or ED25519 private key
+     */
+    EDDSASignaturePrivateKeyCtx(const AsymmetricPrivateKey &key);
+
+    /**
+     * @brief Destructor
+     */
+    ~EDDSASignaturePrivateKeyCtx();
+
+    /**
+     * @brief Copy Constructor
+     */
+    EDDSASignaturePrivateKeyCtx(const EDDSASignaturePrivateKeyCtx &other);
+
+
+    /**
+     * @brief Copy Assignment
+     */
+    EDDSASignaturePrivateKeyCtx& operator=(const EDDSASignaturePrivateKeyCtx &other);
+
+    /**
+     * @brief Signs a message
+     *
+     * Creates an signature for the given message based on the given key.
+     *
+     * @param messageDigest The message to be signed
+     * @return The created signature
+     * @throw MoCOCrWException If the sign operation fails.
+     */
+    std::vector<uint8_t> signMessage(const std::vector<uint8_t> &message);
+private:
+     /**
+     * Internal class for applying the PIMPL design pattern
+     * (to hide the details of storing the padding objects from the client)
+     */
+    class Impl;
+
+    /**
+     * Pointer for PIMPL design pattern
+     */
+    std::unique_ptr<Impl> _impl;
+};
+
+/**
+ * @brief EDDSASignaturePublicKeyCtx
+ *
+ * This class supports verifying EDDSA (PureEDDSA according to RFC8032) signatures.
+ */
+class EDDSASignaturePublicKeyCtx {
+public:
+
+    /**
+     * @brief Constructor
+     * @param key The public key to be used
+     * @throw MoCOCrWException If key is not an ED448 or ED25519 public key
+     */
+    EDDSASignaturePublicKeyCtx(const AsymmetricPublicKey &key);
+
+    /**
+     * @brief Constructor
+     * @param cert The certificate containing the publiy key to be used
+     * @throw MoCOCrWException If the certificate does not contain an ED448 or ED25519 public key
+     */
+    EDDSASignaturePublicKeyCtx(const X509Certificate &cert);
+
+    /**
+     * @brief Destructor
+     */
+    ~EDDSASignaturePublicKeyCtx();
+
+    /**
+     * @brief Copy Constructor
+     */
+    EDDSASignaturePublicKeyCtx(const EDDSASignaturePublicKeyCtx &other);
+
+    /**
+     * @brief Copy Assignment
+     */
+    EDDSASignaturePublicKeyCtx& operator=(const EDDSASignaturePublicKeyCtx &other);
+
+    /**
+     * @brief Verifies the signature of a message
+     *
+     * Verifies the given signature of the given message based on the given key.
+     *
+     * @param signature The signature to be verified
+     * @param message The signed message
+     * @throw MoCOCrWException If the verification fails.
+     */
+    void verifyMessage(const std::vector<uint8_t> &signature,
+                       const std::vector<uint8_t> &message);
+
+private:
+     /**
+     * Internal class for applying the PIMPL design pattern
+     * (to hide the details of storing the padding objects from the client)
+     */
+    class Impl;
+
+    /**
+     * Pointer for PIMPL design pattern
+     */
+    std::unique_ptr<Impl> _impl;
+};
 }

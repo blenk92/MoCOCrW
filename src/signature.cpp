@@ -32,8 +32,17 @@ std::vector<uint8_t> SignatureUtils::create(AsymmetricPrivateKey &privateKey,
 {
     std::vector<uint8_t> messageDigest;
 
-    if(privateKey.getType() != AsymmetricKey::KeyTypes::RSA){
-        throw MoCOCrWException("Functionality is only supported for RSA keys");
+    if(privateKey.getType() != AsymmetricKey::KeyTypes::RSA) {
+        auto spec = utility::unique_ptr_cast<ECCSpec>(privateKey.getKeySpec());
+        if (spec->curve() != ellipticCurveNid::ED448 && spec->curve() != ellipticCurveNid::ED25519) {
+            throw MoCOCrWException("Functionality is only supported for RSA keys, ED448 and ED25519 keys");
+        }
+        else if (padding.getPadding() != RSAPaddingMode::NONE) {
+            throw MoCOCrWException("Padding is not supported for ED448 and ED25519 signatures");
+        }
+    }
+    else if (padding.getPadding() == RSAPaddingMode::NONE) {
+        throw MoCOCrWException("NoPadding is not supported for RSA signatures");
     }
 
     try {
@@ -50,42 +59,66 @@ std::vector<uint8_t> SignatureUtils::create(AsymmetricPrivateKey &privateKey,
                                             const RSAPadding &padding,
                                             std::vector<uint8_t> messageDigest)
 {
-    std::vector<uint8_t> signature;
     const auto keyCtx = _EVP_PKEY_CTX_new(privateKey.internal());
     std::unique_ptr<unsigned char, SSLFree<unsigned char>> sig;
     size_t siglen;
-
-    if(privateKey.getType() != AsymmetricKey::KeyTypes::RSA){
-        throw MoCOCrWException("Functionality is only supported for RSA keys");
-    }
 
     try {
         if (!keyCtx.get()) {
             throw MoCOCrWException("Context is empty");
         }
-        _EVP_PKEY_sign_init(keyCtx.get());
-        setUpContext(keyCtx.get(), padding);
 
-        // This determines the buffer length
-        _EVP_PKEY_sign(keyCtx.get(),
-                       nullptr,
-                       &siglen,
-                       reinterpret_cast<const unsigned char *>(messageDigest.data()),
-                       messageDigest.size());
+        if (privateKey.getType() == AsymmetricKey::KeyTypes::ECC) {
+            auto spec = utility::unique_ptr_cast<ECCSpec>(privateKey.getKeySpec());
+            if (spec->curve() == ellipticCurveNid::ED448 || spec->curve() == ellipticCurveNid::ED25519) {
 
-        _CRYPTO_malloc_init();
-        sig.reset(static_cast<unsigned char *>(_OPENSSL_malloc(siglen)));
-        _EVP_PKEY_sign(keyCtx.get(),
-                       sig.get(),
-                       &siglen,
-                       reinterpret_cast<const unsigned char *>(messageDigest.data()),
-                       messageDigest.size());
+                if (padding.getPadding() != RSAPaddingMode::NONE) {
+                    throw MoCOCrWException("Padding is not supported for ED448 and ED25519 signatures");
+                }
+
+                std::vector<uint8_t> signature;
+                auto mctx = _EVP_MD_CTX_create();
+                _EVP_DigestSignInit(mctx.get(), DigestTypes::NONE, const_cast<EVP_PKEY*>(privateKey.internal()));
+
+                // This determines the buffer length
+                _EVP_DigestSign(mctx.get(), nullptr, &siglen, messageDigest.data(), messageDigest.size());
+
+                signature.resize(siglen);
+                _EVP_DigestSign(mctx.get(), signature.data(), &siglen, messageDigest.data(), messageDigest.size());
+
+                return signature;
+            }
+        }
+        else if (privateKey.getType() == AsymmetricKey::KeyTypes::RSA) {
+            if (padding.getPadding() == RSAPaddingMode::NONE) {
+                throw MoCOCrWException("NoPadding is not supported for RSA signatures");
+            }
+
+            _EVP_PKEY_sign_init(keyCtx.get());
+            setUpContext(keyCtx.get(), padding);
+
+            // This determines the buffer length
+            _EVP_PKEY_sign(keyCtx.get(),
+                        nullptr,
+                        &siglen,
+                        reinterpret_cast<const unsigned char *>(messageDigest.data()),
+                        messageDigest.size());
+
+            _CRYPTO_malloc_init();
+            sig.reset(static_cast<unsigned char *>(_OPENSSL_malloc(siglen)));
+            _EVP_PKEY_sign(keyCtx.get(),
+                        sig.get(),
+                        &siglen,
+                        reinterpret_cast<const unsigned char *>(messageDigest.data()),
+                        messageDigest.size());
+
+            return std::vector<uint8_t>(sig.get(), sig.get() + siglen);
+        }
     }
     catch (const OpenSSLException &e) {
         throw MoCOCrWException(e.what());
     }
-
-    return std::vector<uint8_t>(sig.get(), sig.get() + siglen);
+    throw MoCOCrWException("Functionality is only supported for RSA, ED448 and ED25519 keys");
 }
 
 void SignatureUtils::verify(AsymmetricPublicKey &publicKey,
@@ -95,8 +128,16 @@ void SignatureUtils::verify(AsymmetricPublicKey &publicKey,
 {
     std::vector<uint8_t> messageDigest;
 
-    if(publicKey.getType() != AsymmetricKey::KeyTypes::RSA){
-        throw MoCOCrWException("Functionality is only supported for RSA keys");
+    if(publicKey.getType() != AsymmetricKey::KeyTypes::RSA) {
+        auto spec = utility::unique_ptr_cast<ECCSpec>(publicKey.getKeySpec());
+        if (spec->curve() != ellipticCurveNid::ED448 && spec->curve() != ellipticCurveNid::ED25519) {
+            throw MoCOCrWException("Functionality is only supported for RSA keys, ED448 and ED25519 keys");
+        } else if (padding.getPadding() != RSAPaddingMode::NONE) {
+            throw MoCOCrWException("Padding is not supported for ED448 and ED25519 signatures");
+        }
+    }
+    else if (padding.getPadding() == RSAPaddingMode::NONE) {
+        throw MoCOCrWException("NoPadding is not supported for RSA signatures");
     }
 
     try {
@@ -115,23 +156,42 @@ void SignatureUtils::verify(AsymmetricPublicKey &publicKey,
 {
     const auto keyCtx = _EVP_PKEY_CTX_new(publicKey.internal());
 
-    if(publicKey.getType() != AsymmetricKey::KeyTypes::RSA){
-        throw MoCOCrWException("Functionality is only supported for RSA keys");
-    }
-
     try {
-        _EVP_PKEY_verify_init(keyCtx.get());
-        setUpContext(keyCtx.get(), padding);
+        if (publicKey.getType() == AsymmetricKey::KeyTypes::ECC) {
+            auto spec = utility::unique_ptr_cast<ECCSpec>(publicKey.getKeySpec());
+            if (spec->curve() == ellipticCurveNid::ED448 || spec->curve() == ellipticCurveNid::ED25519) {
 
-        _EVP_PKEY_verify(keyCtx.get(),
-                         reinterpret_cast<const unsigned char *>(signature.data()),
-                         signature.size(),
-                         reinterpret_cast<const unsigned char *>(messageDigest.data()),
-                         messageDigest.size());
+                if (padding.getPadding() != RSAPaddingMode::NONE) {
+                    throw MoCOCrWException("Padding is not supported for ED448 and ED25519 signatures");
+                }
+
+                auto mctx = _EVP_MD_CTX_create();
+                _EVP_DigestVerifyInit(mctx.get(), openssl::DigestTypes::NONE, publicKey.internal());
+                _EVP_DigestVerify(mctx.get(), signature.data(), signature.size(), messageDigest.data(), messageDigest.size());
+                return;
+            }
+        }
+        else if (publicKey.getType() == AsymmetricKey::KeyTypes::RSA) {
+            if (padding.getPadding() == RSAPaddingMode::NONE) {
+                throw MoCOCrWException("NoPadding is not supported for RSA signatures");
+            }
+
+            _EVP_PKEY_verify_init(keyCtx.get());
+            setUpContext(keyCtx.get(), padding);
+
+            _EVP_PKEY_verify(keyCtx.get(),
+                            reinterpret_cast<const unsigned char *>(signature.data()),
+                            signature.size(),
+                            reinterpret_cast<const unsigned char *>(messageDigest.data()),
+                            messageDigest.size());
+            return;
+        }
     }
     catch (const OpenSSLException &e) {
         throw MoCOCrWException(e.what());
     }
+
+    throw MoCOCrWException("Functionality is only supported for RSA keys, ED448 and ED25519 keys");
 }
 
 void SignatureUtils::verify(const X509Certificate &certificate,
@@ -162,6 +222,8 @@ std::vector<uint8_t> SignatureUtils::digestMessage(const std::string message,
     case DigestTypes::SHA512:
         return sha512(reinterpret_cast<const uint8_t *>(message.c_str()),
                       reinterpret_cast<size_t>(message.length()));
+    case DigestTypes::NONE:
+        return std::vector<uint8_t>(message.begin(), message.end());
     default:
         throw MoCOCrWException("Unknown digest type");
     }
@@ -178,6 +240,10 @@ DigestTypes SignatureUtils::getHashing(const RSAPadding &padding)
     }
     case RSAPaddingMode::PSS: {
         const auto pad = static_cast<const PSSPadding &>(padding);
+        return pad.getHashingFunction();
+    }
+    case RSAPaddingMode::NONE : {
+        const auto pad = static_cast<const NoPadding &>(padding);
         return pad.getHashingFunction();
     }
     default:

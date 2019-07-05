@@ -30,5 +30,11 @@ template <class T>
 using SharedPtrTypeFromUniquePtr = std::shared_ptr<typename T::element_type>;
 
 std::string toHex(const std::vector<uint8_t> &data);
+
+template<typename T, typename U>
+std::unique_ptr<T> unique_ptr_cast(std::unique_ptr<U>&& ptr) {
+    return std::unique_ptr<T>(dynamic_cast<T*>(ptr.release()));
+}
+
 }  //::utility
 }  //::mococrw

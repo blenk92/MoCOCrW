@@ -545,6 +545,7 @@ void _X509_REQ_sign_ctx(X509_REQ* req, EVP_MD_CTX* ctx);
  * or hash computations.
  */
 enum class DigestTypes {
+    NONE = NULL,
     SHA1,
     SHA256, // @MARCUS: Shouldn't there be some value initialization with openssl consts here?
     SHA384,
@@ -553,18 +554,6 @@ enum class DigestTypes {
     SHA3_384,
     SHA3_512
 };
-
-/**
- * Initialize the MD_CTX for signing, using a given digest-type and a given
- * public key.
- *
- * @param ctx The context to be set up for signing.
- * @param md The digest type (@see DigestTypes)
- * @param pkey The public key to be used.
- *
- * @throw OpenSSLException if an error occurs in the underlying OpenSSL function.
- */
-void _EVP_DigestSignInit(EVP_MD_CTX* ctx, DigestTypes md, EVP_PKEY* pkey);
 
 /**
  * Get reference to digest function for a given digest type.
@@ -1068,6 +1057,64 @@ void _EVP_PKEY_verify(EVP_PKEY_CTX *ctx,
                       const unsigned char *tbs, size_t tbslen);
 
 /**
+ * Initialize the MD_CTX for signing, using a given digest-type and a given
+ * public key.
+ *
+ * @param ctx The context to be set up for signing.
+ * @param md The digest type (@see DigestTypes)
+ * @param pkey The public key to be used.
+ *
+ * @throw OpenSSLException if an error occurs in the underlying OpenSSL function.
+ */
+void _EVP_DigestSignInit(EVP_MD_CTX* ctx, DigestTypes md, EVP_PKEY* pkey);
+
+/**
+ * Perform a digital signature of the message tbs and stores the signature in sigret.
+ *
+ * @param ctx The context used for signing.
+ * @param sigret The buffer to write the signature to.
+ * @param siglen The length of the generated signature.
+ * @param tbs Message to be signed.
+ * @param tbslen Length of the message to be signed.
+ *
+ * @throw OpenSSLException if an error occurs in the underlying OpenSSL function.
+ */
+void _EVP_DigestSign(EVP_MD_CTX* ctx,
+                     unsigned char* sigret,
+                     size_t* siglen,
+                     const unsigned char* tbs,
+                     size_t tbslen);
+
+/**
+ * Initialize the MD_CTX for signing, using a given digest-type and a given
+ * public key.
+ *
+ * @param ctx The context to be set up for signing.
+ * @param md The digest type (@see DigestTypes)
+ * @param pkey The public key to be used.
+ *
+ * @throw OpenSSLException if an error occurs in the underlying OpenSSL function.
+ */
+void _EVP_DigestVerifyInit(EVP_MD_CTX* ctx, DigestTypes type, EVP_PKEY* pkey);
+
+/**
+ * Verifies a given digital signature of a message tbs.
+ *
+ * @param ctx The context used for signing.
+ * @param sigret The signature to be verified.
+ * @param siglen The length of the the signature to be verified.
+ * @param tbs Signed message.
+ * @param tbslen Length of the signed message.
+ *
+ * @throw OpenSSLException if an error occurs in the underlying OpenSSL function.
+ */
+void _EVP_DigestVerify(EVP_MD_CTX *ctx,
+                       const unsigned char *sigret,
+                       size_t siglen,
+                       const unsigned char *tbs,
+                       size_t tbslen);
+
+/**
  * Sets the RSA padding
  */
 void _EVP_PKEY_CTX_set_rsa_padding(EVP_PKEY_CTX *ctx, int pad);
@@ -1156,6 +1203,9 @@ enum class ellipticCurveNid
     SECT_409r1 = NID_sect409r1,
     SECT_571k1 = NID_sect571k1,
     SECT_571r1 = NID_sect571r1,
+
+    ED448 = NID_ED448,
+    ED25519 = NID_ED25519
 };
 
 EC_KEY *_EVP_PKEY_get0_EC_KEY(EVP_PKEY *pkey);

@@ -43,9 +43,9 @@ public:
     /**
      * Supported asymmetric key types.
      */
-    enum class KeyTypes : int { RSA = EVP_PKEY_RSA, ECC = EVP_PKEY_EC };
+    enum class KeyTypes : int { RSA, ECC, UNSUPPORTED };
 
-    KeyTypes getType() const  { return static_cast<KeyTypes>(openssl::_EVP_PKEY_type(_key.get())); }
+    KeyTypes getType() const;
 
     int getKeySize() const { return EVP_PKEY_bits(_key.get());}
 

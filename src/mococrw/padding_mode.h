@@ -60,6 +60,11 @@ class NoPadding: public RSAPadding {
 public:
     virtual ~NoPadding() = default;
 
+    NoPadding(openssl::DigestTypes hashingFunction = openssl::DigestTypes::SHA256)
+        :_hashingFunction(hashingFunction)
+    {
+    }
+
     /**
     * @brief Get the padding mode
     *
@@ -70,6 +75,18 @@ public:
     openssl::RSAPaddingMode getPadding() const override
     {
         return openssl::RSAPaddingMode::NONE;
+    }
+
+    /**
+    * @brief Get the hashing function
+    *
+    * Getter method for the hashing function.
+    *
+    * @return The hashing function
+    */
+    openssl::DigestTypes getHashingFunction() const
+    {
+        return _hashingFunction;
     }
 
     /**
@@ -84,6 +101,13 @@ public:
     {
         return key.getKeySize()/8;
     }
+
+private:
+    /**
+    * @brief The masking algorithm to be used. Not necessary for encryption, only when using the
+    * signature facility.
+    */
+    openssl::DigestTypes _hashingFunction;
 };
 
 /**

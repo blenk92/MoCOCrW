@@ -414,6 +414,8 @@ void _X509_REQ_sign_ctx(X509_REQ* req, EVP_MD_CTX* ctx)
 const EVP_MD* _getMDPtrFromDigestType(DigestTypes type)
 {
     switch (type) {
+        case DigestTypes::NONE:
+            return nullptr;
         case DigestTypes::SHA1:
             return lib::OpenSSLLib::SSL_EVP_sha1();
         case DigestTypes::SHA256:
@@ -442,6 +444,11 @@ void _EVP_DigestSignInit(EVP_MD_CTX* ctx, DigestTypes type, EVP_PKEY* pkey)
                                 md,
                                 nullptr,  // We do not specify an engine
                                 pkey);
+}
+
+void _EVP_DigestSign(EVP_MD_CTX* ctx, unsigned char* sigret, size_t* siglen, const unsigned char* tbs, size_t tbslen)
+{
+    OpensslCallIsOne::callChecked(lib::OpenSSLLib::SSL_EVP_DigestSign, ctx, sigret, siglen, tbs, tbslen);
 }
 
 SSL_EVP_MD_CTX_Ptr _EVP_MD_CTX_create()
@@ -1041,6 +1048,15 @@ void _EVP_PKEY_verify(EVP_PKEY_CTX *ctx,
                                              ctx,
                                              sig, siglen,
                                              tbs, tbslen);
+}
+
+void _EVP_DigestVerifyInit(EVP_MD_CTX* ctx, DigestTypes type, EVP_PKEY* pkey) {
+    const EVP_MD* md = _getMDPtrFromDigestType(type);
+    OpensslCallIsPositive::callChecked(lib::OpenSSLLib::SSL_EVP_DigestVerifyInit, ctx, nullptr, md, nullptr, pkey);
+}
+
+void _EVP_DigestVerify(EVP_MD_CTX *ctx, const unsigned char *sigret, size_t siglen, const unsigned char *tbs, size_t tbslen) {
+    OpensslCallIsPositive::callChecked(lib::OpenSSLLib::SSL_EVP_DigestVerify, ctx, sigret, siglen, tbs, tbslen);
 }
 
 void _EVP_PKEY_CTX_set_rsa_padding(EVP_PKEY_CTX *ctx, int pad)

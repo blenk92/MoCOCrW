@@ -491,7 +491,7 @@ INSTANTIATE_TEST_CASE_P(testSuccessfulEncryptionDecryption, AsymmetricEncryption
  *
  * The following use cases are covered:
  * - unsupported padding (PSS)
- * - ECC Key
+ * - ECC keys (default curve, Curve448, Curve25519)
  */
 TEST_F(AsymmetricEncryptionTest, testEncryptionInvalidParameters)
 {
@@ -506,8 +506,20 @@ TEST_F(AsymmetricEncryptionTest, testEncryptionInvalidParameters)
                                                nominalDataSet[0]._message),
                  MoCOCrWException);
 
-    auto eccKey = AsymmetricKeypair::generateECC();
-    EXPECT_THROW(AsymmetricEncryption::encrypt(eccKey,
+    auto eccKeyDefaultCurve = AsymmetricKeypair::generateECC();
+    EXPECT_THROW(AsymmetricEncryption::encrypt(eccKeyDefaultCurve,
+                                               OAEPPadding{},
+                                               nominalDataSet[0]._message),
+                 MoCOCrWException);
+
+    auto eccKeyCurve448 = AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED448});
+    EXPECT_THROW(AsymmetricEncryption::encrypt(eccKeyCurve448,
+                                               OAEPPadding{},
+                                               nominalDataSet[0]._message),
+                 MoCOCrWException);
+
+    auto eccKeyCurve25519 = AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED25519});
+    EXPECT_THROW(AsymmetricEncryption::encrypt(eccKeyCurve448,
                                                OAEPPadding{},
                                                nominalDataSet[0]._message),
                  MoCOCrWException);
@@ -518,7 +530,7 @@ TEST_F(AsymmetricEncryptionTest, testEncryptionInvalidParameters)
  *
  * The following use cases are covered:
  * - unsupported padding (PSS)
- * - ECC key
+ * - ECC keys (default curve, Curve448, Curve25519)
  */
 TEST_F(AsymmetricEncryptionTest, testDecryptionInvalidParameters)
 {
@@ -535,8 +547,20 @@ TEST_F(AsymmetricEncryptionTest, testDecryptionInvalidParameters)
                                                nominalDataSet[0]._encrypted),
                  MoCOCrWException);
 
-    auto eccKey = AsymmetricKeypair::generateECC();
-    EXPECT_THROW(AsymmetricEncryption::decrypt(eccKey,
+    auto eccKeyDefaultCurve = AsymmetricKeypair::generateECC();
+    EXPECT_THROW(AsymmetricEncryption::decrypt(eccKeyDefaultCurve,
+                                               OAEPPadding{},
+                                               nominalDataSet[0]._encrypted),
+                 MoCOCrWException);
+
+    auto eccKeyCurve448 = AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED448});
+    EXPECT_THROW(AsymmetricEncryption::decrypt(eccKeyCurve448,
+                                               OAEPPadding{},
+                                               nominalDataSet[0]._encrypted),
+                 MoCOCrWException);
+
+    auto eccKeyCurve25519 = AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED25519});
+    EXPECT_THROW(AsymmetricEncryption::decrypt(eccKeyCurve25519,
                                                OAEPPadding{},
                                                nominalDataSet[0]._encrypted),
                  MoCOCrWException);

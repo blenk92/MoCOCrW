@@ -52,7 +52,9 @@ protected:
 std::vector<keyWithSize> CSRTest::_asymmetricKeys
 {
     {AsymmetricKeypair::generateRSA(), 1024},
-    {AsymmetricKeypair::generateECC(), 256}
+    {AsymmetricKeypair::generateECC(), 256},
+    {AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED448}), 456},
+    {AsymmetricKeypair::generate(mococrw::ECCSpec{openssl::ellipticCurveNid::ED25519}), 253}
 };
 std::unique_ptr<DistinguishedName> CSRTest::_distinguishedName;
 
